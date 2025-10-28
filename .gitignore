@@ -1,0 +1,46 @@
+# AutoHotkey
+*.exe
+*.lnk
+
+# Logs
+logs/*.log
+*.log
+
+# Config (keep template)
+config/app_config.json
+!config/app_config_example.json
+
+# User data
+dungeon_rules/*.json
+!dungeon_rules/example.json
+
+# Temporary files
+*.tmp
+*.temp
+~*
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python (if using OCR bridge)
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+
+# Backup files
+*.bak
+*.backup
+

@@ -1,0 +1,82 @@
+{
+    "dungeon_name": "示例副本",
+    "description": "这是一个示例副本配置，演示如何配置时间轴、OCR触发器和站位",
+    "timeline": [
+        {
+            "time": 10,
+            "skill_name": "开场buff",
+            "tts_template": "准备开怪"
+        },
+        {
+            "time": 30,
+            "skill_name": "大招",
+            "tts_template": "{position}站位 注意躲避",
+            "target": "MT"
+        },
+        {
+            "time": 60,
+            "skill_name": "全屏AOE",
+            "tts_template": "全屏AOE 注意减伤"
+        }
+    ],
+    "overlay_timeline": [
+        {
+            "time": 10,
+            "skill_name": "开场buff"
+        },
+        {
+            "time": 30,
+            "skill_name": "大招"
+        },
+        {
+            "time": 60,
+            "skill_name": "全屏AOE"
+        }
+    ],
+    "positions": {
+        "大招": {
+            "position": "A点",
+            "target": "MT"
+        },
+        "大招#2": {
+            "position": "B点",
+            "target": "ST"
+        },
+        "分摊": {
+            "position": "1点",
+            "target": "1队"
+        },
+        "分摊#2": {
+            "position": "3点",
+            "target": "2队"
+        }
+    },
+    "boss_dialogue": {
+        "陨石": {
+            "tts": "{position}放陨石",
+            "cooldown": 5
+        },
+        "分摊": {
+            "tts": "前往{position}分摊",
+            "cooldown": 5,
+            "target": "1队"
+        },
+        "分摊#2": {
+            "tts": "前往{position}分摊",
+            "cooldown": 5,
+            "target": "2队"
+        }
+    },
+    "boss_hp": {
+        "80": {
+            "tts": "BOSS血量80% 准备小怪",
+            "cooldown": 10
+        },
+        "50": {
+            "tts": "BOSS血量50% 进入P2",
+            "cooldown": 10
+        }
+    },
+    "boss_skill": {}
+}
+
