@@ -147,7 +147,7 @@ class DBMApp {
         this.logger.Info("✅ DBM 播报系统初始化完成")
         
         ; 显示启动提示
-        this.mainWindow.UpdateStatusBar("就绪 - 按 F12 显示/隐藏窗口")
+        this.mainWindow.UpdateStatusBar("就绪 - 按 F7 显示/隐藏主窗口")
     }
     
     ; 设置回调
@@ -3583,11 +3583,11 @@ RegisterHotkeys()
 ; 显示启动提示
 hotkeyWindow := g_ConfigManager.GetNested("hotkeys", "toggle_window")
 if (!hotkeyWindow) {
-    hotkeyWindow := "F12"
+    hotkeyWindow := "F7"
 }
 hotkeyMonitor := g_ConfigManager.GetNested("hotkeys", "toggle_monitor")
 if (!hotkeyMonitor) {
-    hotkeyMonitor := "F10"
+    hotkeyMonitor := "F5"
 }
 ; TrayTip("✅ DBM 播报系统已启动", "按 " hotkeyMonitor " 启动/停止监控`n按 " hotkeyWindow " 显示/隐藏主窗口")
 
