@@ -907,7 +907,9 @@ class MainWindow {
             ocr := config["ocr"]
             
             if (ocr.Has("check_interval")) {
-                this.ocrIntervalEdit.Value := ocr["check_interval"]
+                ; 格式化浮点数，保留2位小数
+                interval := Round(Float(ocr["check_interval"]), 2)
+                this.ocrIntervalEdit.Value := Format("{:.2f}", interval)
             }
         }
         
@@ -985,7 +987,7 @@ class MainWindow {
         
         ; OCR 设置
         config["ocr"] := Map(
-            "check_interval", Float(this.ocrIntervalEdit.Value)
+            "check_interval", Round(Float(this.ocrIntervalEdit.Value), 2)
         )
         
         ; 日志设置
