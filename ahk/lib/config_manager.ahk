@@ -45,7 +45,8 @@ class ConfigManager {
         this.defaultConfig["monitor"] := Map(
             "enable_timeline", true,
             "enable_ocr", true,
-            "show_timeline_overlay", true  ; 显示TTS轴倒计时悬浮窗
+            "show_timeline_overlay", true,  ; 显示TTS轴倒计时悬浮窗
+            "current_dungeon", ""  ; 当前选择的副本文件名
         )
         
         ; 玩家设置

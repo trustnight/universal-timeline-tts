@@ -162,6 +162,7 @@ class DBMApp {
         
         ; 监控页面回调（合并后的）
         this.mainWindow.SetCallback("OnRefreshDungeons", ObjBindMethod(this, "OnRefreshDungeons"))
+        this.mainWindow.SetCallback("OnDungeonChange", ObjBindMethod(this, "OnDungeonChange"))
         this.mainWindow.SetCallback("OnNewDungeon", ObjBindMethod(this, "OnNewDungeon"))
         this.mainWindow.SetCallback("OnEditDungeon", ObjBindMethod(this, "OnEditDungeon"))
         this.mainWindow.SetCallback("OnDeleteDungeon", ObjBindMethod(this, "OnDeleteDungeon"))
@@ -249,6 +250,15 @@ class DBMApp {
         if (this.timeline) {
             partyValue := this.GetCurrentPartyValue()
             this.timeline.SetPlayerTarget(partyValue, roleValue)
+        }
+    }
+    
+    ; 副本切换时自动保存
+    OnDungeonChange(dungeonFile) {
+        ; 保存到配置
+        this.configManager.SetNested(["monitor", "current_dungeon"], dungeonFile)
+        if (this.configManager.Save()) {
+            this.logger.Debug("副本已自动保存: " dungeonFile)
         }
     }
     
@@ -416,6 +426,20 @@ class DBMApp {
         }
         
         this.mainWindow.UpdateDungeonList(dungeons)
+        
+        ; 恢复之前选择的副本
+        savedDungeon := this.configManager.GetNested("monitor", "current_dungeon")
+        if (savedDungeon != "") {
+            ; 查找副本在列表中的索引
+            for index, dungeon in dungeons {
+                if (dungeon = savedDungeon) {
+                    this.mainWindow.dungeonCombo.Choose(index)
+                    this.logger.Debug("已恢复副本选择: " savedDungeon)
+                    break
+                }
+            }
+        }
+        
         return dungeons  ; 返回副本列表
     }
     

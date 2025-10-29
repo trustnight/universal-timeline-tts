@@ -224,6 +224,7 @@ class MainWindow {
         
         this.gui.Add("Text", "x50 y100", "副本:")
         this.dungeonCombo := this.gui.Add("DropDownList", "x110 y95 w480")
+        this.dungeonCombo.OnEvent("Change", ObjBindMethod(this, "OnDungeonChange"))
         
         this.gui.Add("Button", "x600 y95 w60 h28", "➕ 新建").OnEvent("Click", ObjBindMethod(this, "OnNewDungeon"))
         this.gui.Add("Button", "x670 y95 w60 h28", "📝 编辑").OnEvent("Click", ObjBindMethod(this, "OnEditDungeon"))
@@ -489,6 +490,14 @@ class MainWindow {
         ; 调用回调
         if (this.callbacks.Has("OnRefreshDungeons")) {
             this.callbacks["OnRefreshDungeons"]()
+        }
+    }
+    
+    ; 副本切换事件
+    OnDungeonChange(ctrl, info) {
+        ; 调用回调立即保存配置
+        if (this.callbacks.Has("OnDungeonChange")) {
+            this.callbacks["OnDungeonChange"](ctrl.Text)
         }
     }
     

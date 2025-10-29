@@ -2,17 +2,18 @@
 *.exe
 *.lnk
 
-# Logs
-logs/*.log
+# Logs (ignore entire folder)
+logs/
 *.log
 
-# Config (keep template)
-config/app_config.json
-!config/app_config_example.json
+# Config (ignore entire folder)
+config/
 
-# User data
-dungeon_rules/*.json
-!dungeon_rules/example.json
+# User data (ignore entire folder)
+dungeon_rules/
+
+# OCR test (ignore entire folder)
+ocr_test/
 
 # Temporary files
 *.tmp
