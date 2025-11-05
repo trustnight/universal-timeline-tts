@@ -1,0 +1,70 @@
+name: Build and Release EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare AutoHotkey v2 + Ahk2Exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dest = "$env:RUNNER_TEMP\ahk"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+          # 下载 AutoHotkey v2 便携版（优先用最新发布的 ZIP，失败则回退到固定版本）
+          $ahkZip = "$dest\AutoHotkey_v2.zip"
+          try {
+            Invoke-WebRequest -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/latest/download/AutoHotkey_2.0.18.zip" -OutFile $ahkZip -UseBasicParsing
+          } catch {
+            Invoke-WebRequest -Uri "https://www.autohotkey.com/download/2.0/AutoHotkey_2.0.18.zip" -OutFile $ahkZip -UseBasicParsing
+          }
+          Expand-Archive -LiteralPath $ahkZip -DestinationPath $dest -Force
+
+          # 下载 Ahk2Exe 编译器
+          $ahk2exeZip = "$dest\Ahk2Exe.zip"
+          Invoke-WebRequest -Uri "https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.zip" -OutFile $ahk2exeZip -UseBasicParsing
+          Expand-Archive -LiteralPath $ahk2exeZip -DestinationPath "$dest\Ahk2Exe" -Force
+
+          # 定位工具路径
+          $global:AHK_BASE = Get-ChildItem -Path $dest -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1 -ExpandProperty FullName
+          $global:AHK2EXE  = Get-ChildItem -Path "$dest\Ahk2Exe" -Recurse -Filter "Ahk2Exe.exe"    | Select-Object -First 1 -ExpandProperty FullName
+          if (!$AHK_BASE -or !$AHK2EXE) { throw "Required tools not found." }
+
+          # 创建输出目录并编译
+          New-Item -ItemType Directory -Force -Path "$PWD\dist" | Out-Null
+          & $AHK2EXE /in "$PWD\main.ahk" /out "$PWD\dist\DBM.exe" /base "$AHK_BASE"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: exe
+          path: dist/DBM.exe
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: exe
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DBM.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
