@@ -30,13 +30,14 @@ jobs:
           curl -fsSL -A "curl/8.x" -o "$ahkZip" "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$version/AutoHotkey_$version.zip"
           Expand-Archive -LiteralPath $ahkZip -DestinationPath $dest -Force
 
-          # 在解压的 AutoHotkey 中查找 Ahk2Exe（位于 Compiler\Ahk2Exe.exe）
-          $compilerDir = Get-ChildItem -Path $dest -Recurse -Directory -Filter "Compiler" | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $compilerDir) { throw "Compiler directory not found in AutoHotkey portable." }
-
           # 定位工具路径
-          $global:AHK_BASE = Get-ChildItem -Path $dest -Recurse -Filter "AutoHotkey64.exe" | Select-Object -First 1 -ExpandProperty FullName
-          $global:AHK2EXE  = Get-ChildItem -Path $compilerDir -Recurse -Filter "Ahk2Exe.exe" | Select-Object -First 1 -ExpandProperty FullName
+          # 优先选择 v2 目录下的 AutoHotkey64.exe，否则退回第一项
+          $ahk64All = Get-ChildItem -Path $dest -Recurse -Filter "AutoHotkey64.exe"
+          $global:AHK_BASE = ($ahk64All | Where-Object { $_.FullName -match "\\v2\\" } | Select-Object -First 1 -ExpandProperty FullName)
+          if (-not $global:AHK_BASE) { $global:AHK_BASE = ($ahk64All | Select-Object -First 1 -ExpandProperty FullName) }
+
+          # 在任意位置查找 Ahk2Exe.exe（避免依赖固定的 Compiler 目录）
+          $global:AHK2EXE  = Get-ChildItem -Path $dest -Recurse -Filter "Ahk2Exe.exe" | Select-Object -First 1 -ExpandProperty FullName
           if (!$AHK_BASE -or !$AHK2EXE) { throw "Required tools not found." }
 
           # 创建输出目录并编译
