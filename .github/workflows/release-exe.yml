@@ -22,18 +22,15 @@ jobs:
           $dest = "$env:RUNNER_TEMP\ahk"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
-          # 下载 AutoHotkey v2 便携版（优先用最新发布的 ZIP，失败则回退到固定版本）
-          $ahkZip = "$dest\AutoHotkey_v2.zip"
-          try {
-            Invoke-WebRequest -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/latest/download/AutoHotkey_2.0.18.zip" -OutFile $ahkZip -UseBasicParsing
-          } catch {
-            Invoke-WebRequest -Uri "https://www.autohotkey.com/download/2.0/AutoHotkey_2.0.18.zip" -OutFile $ahkZip -UseBasicParsing
-          }
+          # 从 GitHub Releases 下载 AutoHotkey v2 便携版，避免 Cloudflare 拦截
+          $version = '2.0.18'
+          $ahkZip = "$dest\AutoHotkey_$version.zip"
+          curl -fsSL -A "curl/8.x" -o "$ahkZip" "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$version/AutoHotkey_$version.zip"
           Expand-Archive -LiteralPath $ahkZip -DestinationPath $dest -Force
 
           # 下载 Ahk2Exe 编译器
           $ahk2exeZip = "$dest\Ahk2Exe.zip"
-          Invoke-WebRequest -Uri "https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.zip" -OutFile $ahk2exeZip -UseBasicParsing
+          curl -fsSL -A "curl/8.x" -o "$ahk2exeZip" "https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.zip"
           Expand-Archive -LiteralPath $ahk2exeZip -DestinationPath "$dest\Ahk2Exe" -Force
 
           # 定位工具路径
