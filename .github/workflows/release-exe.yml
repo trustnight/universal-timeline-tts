@@ -17,6 +17,8 @@ jobs:
 
       - name: Prepare AutoHotkey v2 + Ahk2Exe
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = 'Stop'
           $dest = "$env:RUNNER_TEMP\ahk"
@@ -28,9 +30,37 @@ jobs:
           curl -fsSL -A "curl/8.x" -o "$ahkZip" "https://github.com/AutoHotkey/AutoHotkey/releases/download/v$version/AutoHotkey_$version.zip"
           Expand-Archive -LiteralPath $ahkZip -DestinationPath $dest -Force
 
-          # 下载 Ahk2Exe 编译器
+          # 下载 Ahk2Exe 编译器（通过 GitHub API 获取 latest 资源，避免 404）
           $ahk2exeZip = "$dest\Ahk2Exe.zip"
-          curl -fsSL -A "curl/8.x" -o "$ahk2exeZip" "https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.zip"
+          $repo = 'AutoHotkey/Ahk2Exe'
+          $headers = @{ 'User-Agent' = 'github-actions'; 'Accept' = 'application/vnd.github+json' }
+          if ($env:GITHUB_TOKEN) { $headers['Authorization'] = "token $env:GITHUB_TOKEN" }
+
+          $downloadUrl = $null
+          try {
+            $latest = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$repo/releases/latest"
+            $asset = $latest.assets | Where-Object { $_.name -eq 'Ahk2Exe.zip' } | Select-Object -First 1
+            if ($asset) { $downloadUrl = $asset.browser_download_url }
+          } catch {}
+
+          if (-not $downloadUrl) {
+            # 退化到静态地址（可能偶发 404），后续有重试
+            $downloadUrl = 'https://github.com/AutoHotkey/Ahk2Exe/releases/latest/download/Ahk2Exe.zip'
+          }
+
+          $maxAttempts = 3
+          for ($i=1; $i -le $maxAttempts; $i++) {
+            try {
+              Write-Host "Downloading Ahk2Exe (attempt $i): $downloadUrl"
+              curl -fsSL -A "curl/8.x" -o "$ahk2exeZip" "$downloadUrl"
+              if (Test-Path $ahk2exeZip) { break }
+            } catch {
+              if ($i -eq $maxAttempts) { throw }
+              Start-Sleep -Seconds (2 * $i)
+            }
+          }
+
+          if (!(Test-Path $ahk2exeZip)) { throw "Ahk2Exe.zip download failed." }
           Expand-Archive -LiteralPath $ahk2exeZip -DestinationPath "$dest\Ahk2Exe" -Force
 
           # 定位工具路径
