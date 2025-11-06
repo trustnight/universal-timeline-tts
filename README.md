@@ -180,7 +180,6 @@ universal-timeline-tts/
 理论上适用于任何需要时间轴播报的游戏，例如：
 
 - MMORPG 副本战斗
-- 音游节奏提示
 - 其他需要时间提示的场景
 
 只需根据游戏配置相应的：
@@ -230,7 +229,7 @@ universal-timeline-tts/
 
 ## 🤝 贡献
 
-本项目 **99% 由 AI 制作完成**，欢迎提交 Issue 和 Pull Request！
+本项目 **99% 由 AI 制作完成。**
 
 ## 📄 开源协议
 
@@ -243,5 +242,3 @@ universal-timeline-tts/
 - [AutoHotkey v2](https://www.autohotkey.com/) - 强大的自动化脚本语言
 - [RapidOCR](https://github.com/RapidAI/RapidOCR) - 高性能 OCR 引擎
 - **AI Assistant** - 主要开发者 🤖
-
-⭐ 如果这个项目对你有帮助，欢迎 Star！
