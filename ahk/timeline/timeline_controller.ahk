@@ -17,6 +17,7 @@ class TimelineController {
     positions := Map()  ; 当前副本的站位配置（技能名 -> 站位）
     playerParty := "all"  ; 当前玩家队伍（all、1、2）
     playerRole := "all"  ; 当前玩家职业（all、MT、H1、D1、D2、ST、H2、D3、D4）
+    broadcastAll := false  ; 全部播报（忽略职能限制）
     currentIndex := 0
     timelineDone := false  ; TTS轴播报是否完成
     timerFunc := ""
@@ -39,6 +40,9 @@ class TimelineController {
                 if (player.Has("role")) {
                     this.playerRole := player["role"]
                 }
+                if (player.Has("broadcast_all")) {
+                    this.broadcastAll := player["broadcast_all"]
+                }
             }
         }
     }
@@ -48,6 +52,12 @@ class TimelineController {
         this.playerParty := party
         this.playerRole := role
         OutputDebug("✅ 目标已设置为: 队伍=" party " 职业=" role)
+    }
+    
+    ; 设置全部播报模式
+    SetBroadcastAll(broadcastAll) {
+        this.broadcastAll := broadcastAll
+        OutputDebug("✅ 全部播报模式已设置为: " (broadcastAll ? "开启" : "关闭"))
     }
     
     ; 启动TTS轴
@@ -319,43 +329,49 @@ class TimelineController {
                 return
             }
             
-            ; 新格式：直接比较（如 "1队", "2队", "MT", "H1" 等）
-            ; 支持取反：~MT 表示除了MT之外都播报
-            if (eventTarget != "全部") {
-                ; 转换玩家队伍和职能为显示格式
-                currentParty := this.playerParty = "1" ? "1队" : this.playerParty = "2" ? "2队" : ""
-                currentRole := this.playerRole = "all" ? "" : StrUpper(this.playerRole)
-                
-                ; 检查是否为取反模式（以 ~ 开头）
-                isNegation := SubStr(eventTarget, 1, 1) = "~"
-                actualTarget := isNegation ? SubStr(eventTarget, 2) : eventTarget
-                
-                ; 检查是否匹配队伍、职能或职称组
-                isMatch := false
-                if (actualTarget = currentParty || actualTarget = currentRole) {
-                    isMatch := true
-                } else if (actualTarget = "T" && (currentRole = "MT" || currentRole = "ST")) {
-                    ; T = 坦克组
-                    isMatch := true
-                } else if (actualTarget = "D" && (currentRole = "D1" || currentRole = "D2" || currentRole = "D3" || currentRole = "D4")) {
-                    ; D = 输出组
-                    isMatch := true
-                } else if (actualTarget = "H" && (currentRole = "H1" || currentRole = "H2")) {
-                    ; H = 奶妈组
-                    isMatch := true
+            ; 如果开启了全部播报，跳过职能过滤
+            if (!this.broadcastAll) {
+                ; 新格式：直接比较（如 "1队", "2队", "MT", "H1" 等）
+                ; 支持取反：~MT 表示除了MT之外都播报
+                if (eventTarget != "全部") {
+                    ; 转换玩家队伍和职能为显示格式
+                    currentParty := this.playerParty = "1" ? "1队" : this.playerParty = "2" ? "2队" : ""
+                    currentRole := this.playerRole = "all" ? "" : StrUpper(this.playerRole)
+                    
+                    ; 检查是否为取反模式（以 ~ 开头）
+                    isNegation := SubStr(eventTarget, 1, 1) = "~"
+                    actualTarget := isNegation ? SubStr(eventTarget, 2) : eventTarget
+                    
+                    ; 检查是否匹配队伍、职能或职称组
+                    isMatch := false
+                    if (actualTarget = currentParty || actualTarget = currentRole) {
+                        isMatch := true
+                    } else if (actualTarget = "T" && (currentRole = "MT" || currentRole = "ST")) {
+                        ; T = 坦克组
+                        isMatch := true
+                    } else if (actualTarget = "N" && (currentRole = "H1" || currentRole = "H2")) {
+                        ; N = 奶妈组
+                        isMatch := true
+                    } else if (actualTarget = "D" && (currentRole = "D1" || currentRole = "D2" || currentRole = "D3" || currentRole = "D4")) {
+                        ; D = 输出组
+                        isMatch := true
+                    }
+                    
+                    ; 如果是取反模式，反转匹配结果
+                    if (isNegation) {
+                        isMatch := !isMatch
+                    }
+                    
+                    if (!isMatch) {
+                        skillName := event.Has("skill_name") ? event["skill_name"] : "未知"
+                        global g_Logger
+                        g_Logger.Debug("⏭️ 跳过事件（目标不匹配）: " skillName " - 需要:[" eventTarget "] 当前:[" currentParty "/" currentRole "]")
+                        return
+                    }
                 }
-                
-                ; 如果是取反模式，反转匹配结果
-                if (isNegation) {
-                    isMatch := !isMatch
-                }
-                
-                if (!isMatch) {
-                    skillName := event.Has("skill_name") ? event["skill_name"] : "未知"
-                    global g_Logger
-                    g_Logger.Debug("⏭️ 跳过事件（目标不匹配）: " skillName " - 需要:[" eventTarget "] 当前:[" currentParty "/" currentRole "]")
-                    return
-                }
+            } else {
+                global g_Logger
+                g_Logger.Debug("📢 全部播报模式已启用，跳过职能过滤")
             }
         }
         
@@ -425,8 +441,8 @@ class TimelineController {
                     }
                     
                     ; 判断target是否匹配（支持取反）
-                    if (target = "全部") {
-                        g_Logger.Debug("     ✅ 匹配成功：全部")
+                    if (target = "全部" || this.broadcastAll) {
+                        g_Logger.Debug("     ✅ 匹配成功：" (this.broadcastAll ? "全部播报模式" : "全部"))
                         posData := data
                         positionValue := position
                         break
@@ -442,11 +458,11 @@ class TimelineController {
                         } else if (actualTarget = "T" && (currentRole = "MT" || currentRole = "ST")) {
                             ; T = 坦克组
                             isMatch := true
+                        } else if (actualTarget = "N" && (currentRole = "H1" || currentRole = "H2")) {
+                            ; N = 奶妈组
+                            isMatch := true
                         } else if (actualTarget = "D" && (currentRole = "D1" || currentRole = "D2" || currentRole = "D3" || currentRole = "D4")) {
                             ; D = 输出组
-                            isMatch := true
-                        } else if (actualTarget = "H" && (currentRole = "H1" || currentRole = "H2")) {
-                            ; H = 奶妈组
                             isMatch := true
                         }
                         

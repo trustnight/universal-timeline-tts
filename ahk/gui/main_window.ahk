@@ -27,6 +27,7 @@ class MainWindow {
     ; 监控控制页面控件（合并TTS轴和OCR）
     dungeonCombo := ""
     roleCombo := ""  ; 职能选择
+    broadcastAllCheck := ""  ; 全部播报
     enableTimelineCheck := ""
     enableOcrCheck := ""
     showOverlayCheck := ""
@@ -238,11 +239,14 @@ class MainWindow {
         this.partyCombo.OnEvent("Change", ObjBindMethod(this, "OnPartyChange"))
         
         this.gui.Add("Text", "x230 y130", "职能:")
-        this.roleCombo := this.gui.Add("DropDownList", "x280 y125 w150", ["全部", "MT", "H1", "D1", "D2", "ST", "H2", "D3", "D4"])
+        this.roleCombo := this.gui.Add("DropDownList", "x280 y125 w150", ["全部", "T", "N", "D", "MT", "H1", "D1", "D2", "ST", "H2", "D3", "D4"])
         this.roleCombo.Choose(1)  ; 默认选择"全部"
         this.roleCombo.OnEvent("Change", ObjBindMethod(this, "OnRoleChange"))
         
-        this.gui.Add("Text", "x450 y130", "说明：选择你的队伍和职能后，只会播报相关内容")
+        this.broadcastAllCheck := this.gui.Add("Checkbox", "x450 y125 w150", "全部播报")
+        this.broadcastAllCheck.OnEvent("Click", ObjBindMethod(this, "OnBroadcastAllChange"))
+        
+        this.gui.Add("Text", "x50 y160", "说明：选择你的队伍和职能后，只会播报相关内容。勾选全部播报将忽略职能限制。")
         
         ; 监控选项组
         this.gui.Add("GroupBox", "x30 y195 w860 h110", "监控选项")
@@ -527,12 +531,12 @@ class MainWindow {
         currentRole := this.roleCombo.Text
         
         if (partyText = "1队") {
-            ; 1队：MT、H1、D1、D2
+            ; 1队：MT、H1、D1、D2 + T/N/D角色组
             this.roleCombo.Delete()
-            this.roleCombo.Add(["全部", "MT", "H1", "D1", "D2"])
+            this.roleCombo.Add(["全部", "T", "N", "D", "MT", "H1", "D1", "D2"])
             ; 尝试保持选择，如果当前选择不在新列表中，则选择"全部"
-            if (currentRole = "全部" || currentRole = "MT" || currentRole = "H1" || currentRole = "D1" || currentRole = "D2") {
-                roleMap := Map("全部", 1, "MT", 2, "H1", 3, "D1", 4, "D2", 5)
+            if (currentRole = "全部" || currentRole = "T" || currentRole = "N" || currentRole = "D" || currentRole = "MT" || currentRole = "H1" || currentRole = "D1" || currentRole = "D2") {
+                roleMap := Map("全部", 1, "T", 2, "N", 3, "D", 4, "MT", 5, "H1", 6, "D1", 7, "D2", 8)
                 if (roleMap.Has(currentRole)) {
                     this.roleCombo.Choose(roleMap[currentRole])
                 } else {
@@ -542,12 +546,12 @@ class MainWindow {
                 this.roleCombo.Choose(1)
             }
         } else if (partyText = "2队") {
-            ; 2队：ST、H2、D3、D4
+            ; 2队：ST、H2、D3、D4 + T/N/D角色组
             this.roleCombo.Delete()
-            this.roleCombo.Add(["全部", "ST", "H2", "D3", "D4"])
+            this.roleCombo.Add(["全部", "T", "N", "D", "ST", "H2", "D3", "D4"])
             ; 尝试保持选择
-            if (currentRole = "全部" || currentRole = "ST" || currentRole = "H2" || currentRole = "D3" || currentRole = "D4") {
-                roleMap := Map("全部", 1, "ST", 2, "H2", 3, "D3", 4, "D4", 5)
+            if (currentRole = "全部" || currentRole = "T" || currentRole = "N" || currentRole = "D" || currentRole = "ST" || currentRole = "H2" || currentRole = "D3" || currentRole = "D4") {
+                roleMap := Map("全部", 1, "T", 2, "N", 3, "D", 4, "ST", 5, "H2", 6, "D3", 7, "D4", 8)
                 if (roleMap.Has(currentRole)) {
                     this.roleCombo.Choose(roleMap[currentRole])
                 } else {
@@ -557,11 +561,11 @@ class MainWindow {
                 this.roleCombo.Choose(1)
             }
         } else {
-            ; 全部：显示所有职业
+            ; 全部：显示所有职业 + T/N/D角色组
             this.roleCombo.Delete()
-            this.roleCombo.Add(["全部", "MT", "H1", "D1", "D2", "ST", "H2", "D3", "D4"])
+            this.roleCombo.Add(["全部", "T", "N", "D", "MT", "H1", "D1", "D2", "ST", "H2", "D3", "D4"])
             ; 尝试保持选择
-            roleMap := Map("全部", 1, "MT", 2, "H1", 3, "D1", 4, "D2", 5, "ST", 6, "H2", 7, "D3", 8, "D4", 9)
+            roleMap := Map("全部", 1, "T", 2, "N", 3, "D", 4, "MT", 5, "H1", 6, "D1", 7, "D2", 8, "ST", 9, "H2", 10, "D3", 11, "D4", 12)
             if (roleMap.Has(currentRole)) {
                 this.roleCombo.Choose(roleMap[currentRole])
             } else {
@@ -575,6 +579,14 @@ class MainWindow {
         ; 调用回调立即保存配置
         if (this.callbacks.Has("OnRoleChange")) {
             this.callbacks["OnRoleChange"]()
+        }
+    }
+    
+    ; 全部播报复选框变化
+    OnBroadcastAllChange(ctrl, info) {
+        ; 调用回调立即保存配置
+        if (this.callbacks.Has("OnBroadcastAllChange")) {
+            this.callbacks["OnBroadcastAllChange"]()
         }
     }
     
@@ -779,10 +791,6 @@ class MainWindow {
         for dungeon in dungeons {
             this.dungeonCombo.Add([dungeon])
         }
-        
-        if (dungeons.Length > 0) {
-            this.dungeonCombo.Choose(1)
-        }
     }
     
     ; 更新监控状态
@@ -870,18 +878,23 @@ class MainWindow {
                 
                 if (partyText = "1队") {
                     ; 1队的职能映射
-                    roleMap := Map("all", 1, "MT", 2, "H1", 3, "D1", 4, "D2", 5)
+                    roleMap := Map("all", 1, "T", 2, "N", 3, "D", 4, "MT", 5, "H1", 6, "D1", 7, "D2", 8)
                 } else if (partyText = "2队") {
                     ; 2队的职能映射
-                    roleMap := Map("all", 1, "ST", 2, "H2", 3, "D3", 4, "D4", 5)
+                    roleMap := Map("all", 1, "T", 2, "N", 3, "D", 4, "ST", 5, "H2", 6, "D3", 7, "D4", 8)
                 } else {
                     ; 全部的职能映射
-                    roleMap := Map("all", 1, "MT", 2, "H1", 3, "D1", 4, "D2", 5, "ST", 6, "H2", 7, "D3", 8, "D4", 9)
+                    roleMap := Map("all", 1, "T", 2, "N", 3, "D", 4, "MT", 5, "H1", 6, "D1", 7, "D2", 8, "ST", 9, "H2", 10, "D3", 11, "D4", 12)
                 }
                 
                 if (roleMap.Has(role)) {
                     this.roleCombo.Choose(roleMap[role])
                 }
+            }
+            
+            ; 加载全部播报设置
+            if (player.Has("broadcast_all")) {
+                this.broadcastAllCheck.Value := player["broadcast_all"]
             }
         }
         

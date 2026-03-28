@@ -168,6 +168,7 @@ class DBMApp {
         this.mainWindow.SetCallback("OnDeleteDungeon", ObjBindMethod(this, "OnDeleteDungeon"))
         this.mainWindow.SetCallback("OnMonitorOptionChange", ObjBindMethod(this, "OnMonitorOptionChange"))
         this.mainWindow.SetCallback("OnRoleChange", ObjBindMethod(this, "OnRoleChange"))
+        this.mainWindow.SetCallback("OnBroadcastAllChange", ObjBindMethod(this, "OnBroadcastAllChange"))
         this.mainWindow.SetCallback("OnStartMonitor", ObjBindMethod(this, "OnStartMonitor"))
         this.mainWindow.SetCallback("OnStopMonitor", ObjBindMethod(this, "OnStopMonitor"))
         this.mainWindow.SetCallback("OnSetOverlayPosition", ObjBindMethod(this, "OnSetOverlayPosition"))
@@ -250,6 +251,23 @@ class DBMApp {
         if (this.timeline) {
             partyValue := this.GetCurrentPartyValue()
             this.timeline.SetPlayerTarget(partyValue, roleValue)
+        }
+    }
+    
+    ; 全部播报复选框变化
+    OnBroadcastAllChange() {
+        ; 获取全部播报状态
+        broadcastAll := this.mainWindow.broadcastAllCheck.Value
+        
+        ; 保存到配置
+        this.configManager.SetNested(["player", "broadcast_all"], broadcastAll)
+        if (this.configManager.Save()) {
+            this.logger.Debug("全部播报已自动保存: " (broadcastAll ? "开启" : "关闭"))
+        }
+        
+        ; 通知TTS轴控制器更新播报模式
+        if (this.timeline) {
+            this.timeline.SetBroadcastAll(broadcastAll)
         }
     }
     
@@ -415,6 +433,9 @@ class DBMApp {
     RefreshDungeons() {
         dungeons := []
         
+        ; 先保存当前选择的副本
+        currentDungeon := this.mainWindow.dungeonCombo.Text
+        
         try {
             if (DirExist("dungeon_rules")) {
                 loop files "dungeon_rules\*.json" {
@@ -427,8 +448,8 @@ class DBMApp {
         
         this.mainWindow.UpdateDungeonList(dungeons)
         
-        ; 恢复之前选择的副本
-        savedDungeon := this.configManager.GetNested("monitor", "current_dungeon")
+        ; 恢复之前选择的副本（优先恢复当前选择，如果没有则从配置恢复）
+        savedDungeon := currentDungeon != "" ? currentDungeon : this.configManager.GetNested("monitor", "current_dungeon")
         if (savedDungeon != "") {
             ; 查找副本在列表中的索引
             for index, dungeon in dungeons {
@@ -827,6 +848,10 @@ class DBMApp {
             for index, dungeon in dungeons {
                 if (dungeon = fileName) {
                     this.mainWindow.dungeonCombo.Choose(index)
+                    ; 保存新选择的副本到配置
+                    this.configManager.SetNested(["monitor", "current_dungeon"], fileName)
+                    this.configManager.Save()
+                    this.logger.Debug("已保存新副本选择: " fileName)
                     break
                 }
             }
@@ -867,6 +892,15 @@ class DBMApp {
             FileDelete(dungeonPath)
             this.logger.Info("删除副本: " dungeonFile)
             this.mainWindow.ShowMessage("成功", "副本已删除", "Success")
+            
+            ; 如果删除的是当前选择的副本，清空配置
+            currentDungeon := this.configManager.GetNested("monitor", "current_dungeon")
+            if (currentDungeon = dungeonFile) {
+                this.configManager.SetNested(["monitor", "current_dungeon"], "")
+                this.configManager.Save()
+                this.logger.Debug("已清空副本选择（当前副本已删除）")
+            }
+            
             this.RefreshDungeons()
         } catch as err {
             this.logger.Error("删除副本失败: " err.Message)
@@ -990,6 +1024,7 @@ class DBMApp {
             editGui.Add("Button", "x260 y510 w100 h35", "✏️ 修改").OnEvent("Click", (*) => this.OnUpdateTimelineClick(timeEdit, skillEdit, timeTtsEdit, targetCombo, targetNegateCheck, timelineList))
             editGui.Add("Button", "x370 y510 w100 h35", "🗑️ 删除").OnEvent("Click", (*) => this.OnDeleteTimelineClick(timelineList))
             editGui.Add("Button", "x480 y510 w140 h35", "📋 从倒计时条复制").OnEvent("Click", (*) => this.OnCopyFromOverlayClick(overlayTimeline, timelineList))
+            editGui.Add("Button", "x630 y510 w100 h35", "🧹 清空规则").OnEvent("Click", (*) => this.OnClearTimelineClick(timelineList))
             timelineList.OnEvent("DoubleClick", (*) => this.OnTimelineDoubleClick(timeEdit, skillEdit, timeTtsEdit, targetCombo, targetNegateCheck, timelineList))
             
             ; ========== Tab 2: 倒计时条 ==========
@@ -1026,6 +1061,7 @@ class DBMApp {
             editGui.Add("Button", "x260 y510 w100 h35", "✏️ 修改").OnEvent("Click", (*) => this.OnUpdateOverlayClick(overlayTimeEdit, overlaySkillEdit, overlayList))
             editGui.Add("Button", "x370 y510 w100 h35", "🗑️ 删除").OnEvent("Click", (*) => this.OnDeleteOverlayClick(overlayList))
             editGui.Add("Button", "x480 y510 w120 h35", "📋 从TTS轴复制").OnEvent("Click", (*) => this.OnCopyFromTimelineClick(timeline, overlayList))
+            editGui.Add("Button", "x610 y510 w100 h35", "🧹 清空规则").OnEvent("Click", (*) => this.OnClearOverlayClick(overlayList))
             overlayList.OnEvent("DoubleClick", (*) => this.OnOverlayDoubleClick(overlayTimeEdit, overlaySkillEdit, overlayList))
             
             ; ========== Tab 3: 站位配置 ==========
@@ -1385,6 +1421,26 @@ class DBMApp {
         Loop selectedRows.Length {
             timelineList.Delete(selectedRows[selectedRows.Length - A_Index + 1])
         }
+    }
+    
+    ; TTS轴编辑器 - 清空规则
+    OnClearTimelineClick(timelineList) {
+        if (timelineList.GetCount() = 0) {
+            MsgBox("TTS轴已经为空，无需清空", "提示", "Icon!")
+            return
+        }
+        
+        result := MsgBox("确定要清空所有TTS轴规则吗？此操作不可恢复！", "确认清空", "YesNo Icon?")
+        if (result = "No") {
+            return
+        }
+        
+        ; 清空所有行
+        Loop timelineList.GetCount() {
+            timelineList.Delete(1)
+        }
+        
+        MsgBox("已清空所有TTS轴规则", "成功", "Icon!")
     }
     
     ; TTS轴编辑器 - 双击填充编辑框
@@ -2555,6 +2611,26 @@ class DBMApp {
         }
     }
     
+    ; 倒计时条编辑器 - 清空规则
+    OnClearOverlayClick(overlayList) {
+        if (overlayList.GetCount() = 0) {
+            MsgBox("倒计时条已经为空，无需清空", "提示", "Icon!")
+            return
+        }
+        
+        result := MsgBox("确定要清空所有倒计时条规则吗？此操作不可恢复！", "确认清空", "YesNo Icon?")
+        if (result = "No") {
+            return
+        }
+        
+        ; 清空所有行
+        Loop overlayList.GetCount() {
+            overlayList.Delete(1)
+        }
+        
+        MsgBox("已清空所有倒计时条规则", "成功", "Icon!")
+    }
+    
     ; 倒计时条 - 双击加载
     OnOverlayDoubleClick(overlayTimeEdit, overlaySkillEdit, overlayList) {
         selectedRow := overlayList.GetNext(0, "Focused")
@@ -2572,6 +2648,18 @@ class DBMApp {
             return
         }
         
+        ; 弹窗让用户输入时间调整秒数，默认为-3
+        inputResult := InputBox("请输入时间调整秒数（正数表示增加，负数表示减少）", "时间调整", "", "-3")
+        if (inputResult.Result = "Cancel") {
+            return
+        }
+        
+        timeAdjustment := Integer(inputResult.Value)
+        if (!IsNumber(timeAdjustment)) {
+            MsgBox("请输入有效的数字", "错误", "Icon!")
+            return
+        }
+        
         ; 收集TTS轴中已有的技能名称
         existingSkills := Map()
         existingCount := timelineList.GetCount()
@@ -2582,7 +2670,7 @@ class DBMApp {
             }
         }
         
-        ; 从倒计时条复制不重复的技能（复制时间，播报内容留空）
+        ; 从倒计时条复制不重复的技能（复制时间+调整秒数，播报内容留空）
         addedCount := 0
         for event in overlayTimeline {
             if (event.Has("skill_name")) {
@@ -2593,8 +2681,12 @@ class DBMApp {
                     continue
                 }
                 
-                ; 复制时间和技能名（播报内容默认为技能名称，职能默认为"全部"）
-                timeDisplay := event.Has("time") ? this.FormatTimeDisplay(event["time"]) : ""
+                ; 复制时间+调整秒数和技能名（播报内容默认为技能名称，职能默认为"全部"）
+                timeDisplay := ""
+                if (event.Has("time")) {
+                    adjustedTime := event["time"] + timeAdjustment
+                    timeDisplay := this.FormatTimeDisplay(adjustedTime)
+                }
                 timelineList.Add("", timeDisplay, skillName, skillName, "全部")
                 addedCount++
             }
@@ -2603,7 +2695,8 @@ class DBMApp {
         if (addedCount > 0) {
             ; 按时间排序
             this.SortTimelineByTime(timelineList)
-            MsgBox("已从倒计时条添加 " addedCount " 个新技能并按时间排序`n（已存在的技能已跳过，播报内容默认为技能名称）", "成功", "Icon!")
+            adjustmentText := timeAdjustment > 0 ? "+" timeAdjustment : timeAdjustment
+            MsgBox("已从倒计时条添加 " addedCount " 个新技能并按时间排序`n（时间已自动调整" adjustmentText "秒，已存在的技能已跳过，播报内容默认为技能名称）", "成功", "Icon!")
         } else {
             MsgBox("TTS轴已包含所有倒计时条技能，无需添加", "提示", "Icon!")
         }
@@ -2613,6 +2706,18 @@ class DBMApp {
     OnCopyFromTimelineClick(timeline, overlayList) {
         if (timeline.Length = 0) {
             MsgBox("TTS轴为空，无法复制", "提示", "Icon!")
+            return
+        }
+        
+        ; 弹窗让用户输入时间调整秒数
+        inputResult := InputBox("请输入时间调整秒数（正数表示增加，负数表示减少）", "时间调整", "", "3")
+        if (inputResult.Result = "Cancel") {
+            return
+        }
+        
+        timeAdjustment := Integer(inputResult.Value)
+        if (!IsNumber(timeAdjustment)) {
+            MsgBox("请输入有效的数字", "错误", "Icon!")
             return
         }
         
@@ -2626,7 +2731,7 @@ class DBMApp {
             }
         }
         
-        ; 从TTS轴复制不重复的技能（复制时间和技能名）
+        ; 从TTS轴复制不重复的技能（复制时间+调整秒数和技能名）
         addedCount := 0
         for event in timeline {
             if (event.Has("skill_name")) {
@@ -2637,8 +2742,12 @@ class DBMApp {
                     continue
                 }
                 
-                ; 复制时间和技能名
-                timeDisplay := event.Has("time") ? this.FormatTimeDisplay(event["time"]) : ""
+                ; 复制时间+调整秒数和技能名
+                timeDisplay := ""
+                if (event.Has("time")) {
+                    adjustedTime := event["time"] + timeAdjustment
+                    timeDisplay := this.FormatTimeDisplay(adjustedTime)
+                }
                 overlayList.Add("", timeDisplay, skillName)
                 addedCount++
             }
@@ -2647,7 +2756,8 @@ class DBMApp {
         if (addedCount > 0) {
             ; 按时间排序
             this.SortOverlayByTime(overlayList)
-            MsgBox("已从TTS轴添加 " addedCount " 个新技能并按时间排序`n（已存在的技能已跳过）", "成功", "Icon!")
+            adjustmentText := timeAdjustment > 0 ? "+" timeAdjustment : timeAdjustment
+            MsgBox("已从TTS轴添加 " addedCount " 个新技能并按时间排序`n（时间已自动调整" adjustmentText "秒，已存在的技能已跳过）", "成功", "Icon!")
         } else {
             MsgBox("倒计时条已包含所有TTS轴技能，无需添加", "提示", "Icon!")
         }
